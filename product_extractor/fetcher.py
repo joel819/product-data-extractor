@@ -1,6 +1,7 @@
 """Polite, SSRF-safe page fetcher: validated DNS, pinned connection, robots.txt, rate limit, size and time caps."""
 import asyncio
 import re
+import ssl
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit
 
@@ -8,7 +9,12 @@ import httpx
 
 from product_extractor.config import Settings
 from product_extractor.errors import (
-    BlockedByRobots, ExtractError, FetchFailed, FetchTimeout, NotHtml, PageTooLarge,
+    BlockedByRobots,
+    ExtractError,
+    FetchFailed,
+    FetchTimeout,
+    NotHtml,
+    PageTooLarge,
 )
 from product_extractor.ratelimit import DomainRateLimiter
 from product_extractor.robots import RobotsChecker
@@ -42,12 +48,14 @@ def decode_body(raw: bytes, content_type: str) -> str:
 
 class Fetcher:
     def __init__(self, settings: Settings, *, transport: httpx.AsyncBaseTransport | None = None,
-                 resolver: Resolver | None = None, limiter: DomainRateLimiter | None = None):
+                 resolver: Resolver | None = None, limiter: DomainRateLimiter | None = None,
+                 verify: ssl.SSLContext | bool = True):
         self.settings = settings
         self._resolver = resolver
         self._limiter = limiter or DomainRateLimiter(settings.per_domain_min_interval_seconds)
         self._client = httpx.AsyncClient(
             transport=transport,
+            verify=verify,  # TLS certificates are checked against the real hostname, never the pinned IP
             timeout=httpx.Timeout(settings.request_timeout_seconds),
             headers={
                 "User-Agent": settings.user_agent,

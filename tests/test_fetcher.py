@@ -2,7 +2,13 @@ import httpx
 import pytest
 
 from product_extractor.errors import (
-    BlockedAddress, BlockedByRobots, FetchFailed, FetchTimeout, InvalidUrl, NotHtml, PageTooLarge,
+    BlockedAddress,
+    BlockedByRobots,
+    FetchFailed,
+    FetchTimeout,
+    InvalidUrl,
+    NotHtml,
+    PageTooLarge,
 )
 from product_extractor.fetcher import Fetcher, decode_body
 from product_extractor.ratelimit import DomainRateLimiter
@@ -110,17 +116,19 @@ async def test_robots_txt_rules_are_obeyed(settings, public_resolver, robots, pa
             await fetcher.fetch(f"https://shop.example.test{path}")
 
 
-async def test_robots_unavailable_means_allowed_but_server_error_means_blocked(settings, public_resolver):
+async def test_robots_unavailable_means_allowed_server_error_means_blocked_and_a_connection_failure_means_fetch_failed(settings, public_resolver):
     f404, _ = make(settings, public_resolver, {("a.example.test", "/robots.txt"): (404, {}, b""), ("a.example.test", "/p"): ok()})
     assert (await f404.fetch("https://a.example.test/p")).status == 200
     f403, _ = make(settings, public_resolver, {("a.example.test", "/robots.txt"): (403, {}, b""), ("a.example.test", "/p"): ok()})
     assert (await f403.fetch("https://a.example.test/p")).status == 200
     f500, _ = make(settings, public_resolver, {("a.example.test", "/robots.txt"): (503, {}, b""), ("a.example.test", "/p"): ok()})
-    with pytest.raises(BlockedByRobots, match="could not be fetched"):
+    with pytest.raises(BlockedByRobots, match="server error"):
         await f500.fetch("https://a.example.test/p")
-    fnet, _ = make(settings, public_resolver, {("a.example.test", "/robots.txt"): httpx.ConnectError("boom"), ("a.example.test", "/p"): ok()})
-    with pytest.raises(BlockedByRobots):
+    # a connection failure is not a robots decision: it is reported as a fetch failure (and the page is not requested)
+    fnet, seen = make(settings, public_resolver, {("a.example.test", "/robots.txt"): httpx.ConnectError("boom"), ("a.example.test", "/p"): ok()})
+    with pytest.raises(FetchFailed, match="ConnectError"):
         await fnet.fetch("https://a.example.test/p")
+    assert [r.url.path for r in seen] == ["/robots.txt"]
 
 
 async def test_robots_can_be_switched_off_and_is_then_not_even_requested(settings, public_resolver):
@@ -202,3 +210,22 @@ def test_decode_body_uses_http_charset_then_meta_then_utf8():
     assert decode_body(b'<meta charset="windows-1252"><p>\x80</p>', "text/html") .endswith("€</p>")
     assert decode_body("日本".encode(), "text/html") == "日本"
     assert decode_body(b"abc", "text/html; charset=nonsense") == "abc"
+
+
+async def test_the_size_cap_applies_to_decompressed_bytes_so_a_zip_bomb_is_stopped(settings, public_resolver):
+    import gzip
+    bomb = gzip.compress(b"<p>" + b"A" * 5_000_000 + b"</p>")           # a few KB on the wire, 5 MB once decoded
+    assert len(bomb) < 20_000
+    fetcher, _ = make(settings, public_resolver, {
+        ("a.example.test", "/robots.txt"): (404, {}, b""),
+        ("a.example.test", "/bomb"): (200, {"content-type": "text/html", "content-encoding": "gzip"}, bomb)}, max_page_bytes=100_000)
+    with pytest.raises(PageTooLarge):
+        await fetcher.fetch("https://a.example.test/bomb")
+
+
+async def test_normal_compressed_pages_still_work(settings, public_resolver):
+    import gzip
+    fetcher, _ = make(settings, public_resolver, {
+        ("a.example.test", "/robots.txt"): (404, {}, b""),
+        ("a.example.test", "/ok"): (200, {"content-type": "text/html", "content-encoding": "gzip"}, gzip.compress(HTML.encode()))})
+    assert (await fetcher.fetch("https://a.example.test/ok")).html == HTML

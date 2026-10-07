@@ -62,8 +62,9 @@ class RobotsRules:
 
 
 class RobotsChecker:
-    """Decides whether we may fetch a URL. Rules for a robots.txt that cannot be read:
-    4xx means 'no rules' (allowed); a 5xx or a network failure means 'assume disallowed'."""
+    """Decides whether we may fetch a URL. Rules for the robots.txt response (RFC 9309): 4xx means 'no rules'
+    (allowed); a 5xx means 'assume disallowed'. A connection or TLS failure is not a robots decision at all: the
+    exception propagates, so the caller reports a fetch failure."""
 
     def __init__(self, fetch: RobotsFetch, clock: Callable[[], float] = time.monotonic):
         self._fetch, self._clock = fetch, clock
@@ -79,16 +80,13 @@ class RobotsChecker:
         if rules is True:
             return True, None
         if rules is False:
-            return False, "robots.txt could not be fetched (server error or network failure), so the page is not fetched"
+            return False, "robots.txt answered with a server error, so the page is not fetched"
         if rules.allowed(path_and_query):
             return True, None
         return False, "robots.txt disallows this URL for this crawler"
 
     async def _load(self, origin: str) -> RobotsRules | bool:
-        try:
-            status, text = await self._fetch(f"{origin}/robots.txt")
-        except Exception:
-            return False
+        status, text = await self._fetch(f"{origin}/robots.txt")
         if status == 200:
             return RobotsRules(text)
         if 400 <= status < 500:
