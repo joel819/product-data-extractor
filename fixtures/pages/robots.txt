@@ -1,0 +1,3 @@
+# Fixture server for the demo and tests: everything here is fictional and may be fetched.
+User-agent: *
+Allow: /
