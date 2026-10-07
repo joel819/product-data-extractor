@@ -8,7 +8,7 @@ from product_extractor.page import Page
 
 # Properties that point at *other* products (related items, variants, reviews): never descend into them.
 _SKIP_KEYS = frozenset({"isrelatedto", "issimilarto", "isaccessoryorsparepartfor", "isconsumablefor", "hasvariant",
-                        "review", "reviews", "aggregaterating", "isvariantof", "isaccessoryorsparepartfor"})
+                        "review", "reviews", "aggregaterating", "isvariantof"})
 _NO_RESOLVE = _SKIP_KEYS | {"itemoffered", "mainentityofpage"}  # back-links; following them only loops
 MAX_NODES = 5000
 

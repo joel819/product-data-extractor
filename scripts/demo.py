@@ -63,7 +63,8 @@ def _cell(value, width: int) -> str:
 
 
 def render_table(results: list[tuple[str, ProductData]]) -> str:
-    cols = [("page", 27), ("name", 28), ("brand", 14), ("price", 11), ("stock", 12), ("sku", 13), ("fields", 6), ("sources", 14), ("review", 6)]
+    cols = [("page", 27), ("name", 28), ("brand", 14), ("price", 11), ("stock", 12), ("sku", 13),
+            ("fields", 6), ("sources", 14), ("review", 6)]
     lines = ["  ".join(h.ljust(w) for h, w in cols), "  ".join("-" * w for _, w in cols)]
     for name, d in results:
         found = sum(getattr(d, f) is not None for f in DATA_FIELDS)
@@ -71,7 +72,7 @@ def render_table(results: list[tuple[str, ProductData]]) -> str:
         low = sum(1 for c in d.confidence.values() if c == "low")
         price = f"{d.price} {d.currency or ''}".strip() if d.price is not None else None
         row = [name, d.name, d.brand, price, d.availability, d.sku, f"{found}/{len(DATA_FIELDS)}", sources, low or ""]
-        lines.append("  ".join(_cell(v, w).ljust(w) for v, (_, w) in zip(row, cols)))
+        lines.append("  ".join(_cell(v, w).ljust(w) for v, (_, w) in zip(row, cols, strict=True)))
     return "\n".join(lines)
 
 

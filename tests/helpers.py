@@ -1,8 +1,8 @@
 import json
 from decimal import Decimal
 
-from product_extractor.extractors import jsonld, microdata, opengraph
 from product_extractor.extractors import html as html_layer
+from product_extractor.extractors import jsonld, microdata, opengraph
 from product_extractor.page import Page
 
 URL = "https://shop.example.test/p/lamp"

@@ -22,6 +22,7 @@ jobs:
         with:
           node-version: "20"
       - run: pip install -r requirements-dev.txt
+      - run: ruff check product_extractor scripts tests
       - run: python -m pytest
       - run: python -m scripts.demo          # the offline demo must keep working
 

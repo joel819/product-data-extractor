@@ -1,6 +1,6 @@
 import pytest
 
-from tests.helpers import D, URL, confidences, jsonld, ld, page, product, values
+from tests.helpers import URL, D, confidences, jsonld, ld, page, product, values
 
 
 def run(data, url=URL):

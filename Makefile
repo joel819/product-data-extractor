@@ -2,7 +2,7 @@ PY ?= python3
 VENV ?= .venv
 BIN := $(VENV)/bin
 
-.PHONY: install test demo run docker clean
+.PHONY: install test lint demo run docker clean
 
 install:  ## create a virtualenv and install dependencies
 	$(PY) -m venv $(VENV)
@@ -11,6 +11,9 @@ install:  ## create a virtualenv and install dependencies
 
 test:     ## run the offline test suite (no keys, no network)
 	$(BIN)/python -m pytest
+
+lint:     ## static checks (ruff)
+	$(BIN)/ruff check product_extractor scripts tests
 
 demo:     ## extract the six fictional fixture pages and print a table
 	$(BIN)/python -m scripts.demo

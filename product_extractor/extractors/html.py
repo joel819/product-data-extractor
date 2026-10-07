@@ -7,7 +7,11 @@ from selectolax.lexbor import LexborNode
 
 from product_extractor.extractors import LayerResult
 from product_extractor.normalize import (
-    clean_text, currency_from, has_ambiguous_symbol, normalize_availability, parse_price,
+    clean_text,
+    currency_from,
+    has_ambiguous_symbol,
+    normalize_availability,
+    parse_price,
 )
 from product_extractor.page import Page
 

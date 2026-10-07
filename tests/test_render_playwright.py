@@ -4,7 +4,6 @@
     RUN_PLAYWRIGHT_TESTS=1 python -m pytest tests/test_render_playwright.py
     (PW_CHROMIUM_PATH=/path/to/chromium to use an existing browser)
 """
-import functools
 import http.server
 import os
 import threading
