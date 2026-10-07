@@ -9,7 +9,11 @@
   Record `make demo` (or the Google Sheets flow) and save it as docs/demo.gif, then replace this comment with:
   ![Demo](docs/demo.gif)
 -->
-> **Demo GIF: coming soon.** Until then, `make demo` prints a table for six fictional pages in a few seconds (see [Quickstart](#quickstart)).
+> **Demo GIF: coming soon.** Until then, this is the real output of `make demo` with an LLM key set (see [Quickstart](#quickstart)):
+
+![Output of make demo: six fictional product pages extracted, with per-field sources and a highlighted row the LLM filled in](docs/demo.png)
+
+Five of the six pages are read from their own markup (JSON-LD, Open Graph, microdata, or an HTML specs table). The highlighted page has none, so only the LLM fallback can read it, and each value it returned had to appear in the page text. The page with no price on it keeps `price` empty and says so in a warning.
 
 ## Contents
 
