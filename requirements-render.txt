@@ -1,0 +1,3 @@
+# Optional: JavaScript rendering (set RENDER_JS=true). After installing run: playwright install chromium
+-r requirements.txt
+playwright>=1.44
