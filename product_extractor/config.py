@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     render_js: bool = False
     render_min_text_chars: int = 200
     render_timeout_seconds: float = 20.0
+    render_executable_path: str = ""  # use this Chromium/Chrome binary instead of Playwright's own download
 
     @property
     def llm_enabled(self) -> bool:

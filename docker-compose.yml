@@ -1,0 +1,18 @@
+services:
+  api:
+    build:
+      context: .
+      args:
+        INSTALL_PLAYWRIGHT: ${INSTALL_PLAYWRIGHT:-false}
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false   # runs with defaults (no LLM, no API key) if there is no .env
+    restart: unless-stopped
+
+  # One-off offline demo of the six fictional pages:  docker compose --profile demo run --rm demo
+  demo:
+    build: .
+    profiles: ["demo"]
+    command: ["python", "-m", "scripts.demo"]

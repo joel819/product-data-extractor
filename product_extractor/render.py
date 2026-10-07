@@ -22,7 +22,7 @@ class Renderer:
         s = self.settings
         try:
             async with async_playwright() as p:
-                browser = await p.chromium.launch()
+                browser = await p.chromium.launch(executable_path=s.render_executable_path or None)
                 try:
                     context = await browser.new_context(user_agent=s.user_agent, java_script_enabled=True)
 
