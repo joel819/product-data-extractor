@@ -132,7 +132,8 @@ def read_product(node: dict, page: Page, method_result: LayerResult, base: Confi
     put("description", clean_text(scalar(node.get("description")), 2000), base)
     image = None
     for item in as_list(node.get("image")):
-        image = page.abs(item if isinstance(item, str) else (item or {}).get("url") or (item or {}).get("contentUrl"))
+        raw = item if isinstance(item, str) else (item.get("url") or item.get("contentUrl")) if isinstance(item, dict) else None
+        image = page.abs(raw) if isinstance(raw, str) else None
         if image:
             break
     put("image_url", image, base)

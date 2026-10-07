@@ -6,7 +6,7 @@ import pytest
 
 from product_extractor.config import Settings
 from product_extractor.extractors.llm import LLMExtractor, build_messages, verify
-from product_extractor.page import Page, squash
+from product_extractor.page import Page, norm
 from tests.conftest import fixture_html
 
 URL = "https://demo.example.test/brambleton-cask-side-table.html"
@@ -152,16 +152,33 @@ TEXT = "The Cask table\nPrice: £149 (was £189)\nColour: Oak\nSize M available.
     ("name", "the cask TABLE", True), ("name", "The Cask Table Deluxe", False),
 ])
 def test_verify(field, value, ok):
-    got, why = verify(field, value, TEXT, squash(TEXT))
+    got, why = verify(field, value, TEXT, norm(TEXT))
     assert (got is not None) is ok and (why is None) is ok
 
 
 def test_a_one_letter_value_must_be_a_whole_word():
-    assert verify("colour", "Q", TEXT, squash(TEXT))[0] is None        # no standalone 'Q' on the page
-    assert verify("colour", "M", TEXT, squash(TEXT))[0] == "M"         # 'Size M available' has it as a word
+    assert verify("colour", "Q", TEXT, norm(TEXT))[0] is None        # no standalone 'Q' on the page
+    assert verify("colour", "M", TEXT, norm(TEXT))[0] == "M"         # 'Size M available' has it as a word
 
 
 def test_a_dollar_sign_alone_does_not_justify_usd():
     text = "Lamp $49.99"
-    assert verify("currency", "USD", text, squash(text))[0] is None
-    assert verify("currency", "USD", "Lamp USD 49.99", squash("Lamp USD 49.99"))[0] == "USD"
+    assert verify("currency", "USD", text, norm(text))[0] is None
+    assert verify("currency", "USD", "Lamp USD 49.99")[0] == "USD"
+
+
+@pytest.mark.parametrize("text,price,ok", [
+    ("Delivery in 3–5 working days", 5, False),                     # a bare number is not evidence of a price
+    ("45 cm wide, 52 cm high", 52, False),
+    ("Item 149 in stock", 149, False),
+    ("just £149", 149, True), ("149 GBP", 149, True), ("EUR 1.299,00", 1299, True), ("US$ 49.99", 49.99, True),
+    ("12,50 €", 12.5, True), ("Price: £ 149", 149, True),
+])
+def test_a_price_must_sit_next_to_a_currency_marker(text, price, ok):
+    assert (verify("price", price, text)[0] is not None) is ok
+
+
+def test_tokens_must_match_whole_not_as_part_of_a_longer_token():
+    assert verify("sku", "2290", "Item BH-2290-OAK")[0] is None            # inside a longer code
+    assert verify("sku", "BH-2290-OAK", "Item BH-2290-OAK.")[0] == "BH-2290-OAK"
+    assert verify("sku", "5", "Pack of 5")[0] is None and verify("sku", "AB", "Code AB")[0] is None   # too short for a SKU

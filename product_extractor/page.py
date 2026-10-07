@@ -22,8 +22,11 @@ class Page:
         """Resolve a possibly relative link. Only http(s) results are returned (no data:, javascript:)."""
         if not href or not href.strip():
             return None
-        full = urljoin(self.base_url, href.strip())
-        return full if urlsplit(full).scheme in ("http", "https") else None
+        try:
+            full = urljoin(self.base_url, href.strip())
+            return full if urlsplit(full).scheme in ("http", "https") and urlsplit(full).netloc else None
+        except ValueError:  # e.g. 'http://[::1' (broken IPv6 literal)
+            return None
 
     @property
     def text(self) -> str:
@@ -43,6 +46,7 @@ class Page:
         return node.text(strip=True) if node else None
 
 
-def squash(text: str) -> str:
-    """Case, width and spacing independent form used to check that a value occurs in the page text."""
-    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", text).casefold())
+def norm(text: str) -> str:
+    """Case-, width- and whitespace-insensitive form used to check that a value occurs in the page text.
+    Punctuation is kept: 'BH-2290' and 'BH 2290' are different values."""
+    return re.sub(r"\s+", " ", unicodedata.normalize("NFKC", text).casefold()).strip()

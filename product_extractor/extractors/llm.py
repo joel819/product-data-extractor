@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from product_extractor.config import Settings
 from product_extractor.extractors import LayerResult
 from product_extractor.normalize import ISO_CODES, UNAMBIGUOUS_SYMBOLS, clean_text, normalize_availability, parse_price
-from product_extractor.page import Page, squash
+from product_extractor.page import Page, norm
 
 LLM_FIELDS = ("name", "brand", "sku", "price", "currency", "availability", "description",
               "dimensions", "colour", "finish", "material")
@@ -71,22 +71,31 @@ def _loads(content: str) -> object:
     return json.loads(content)
 
 
-def _in_text(value: str, text: str, squashed: str) -> bool:
-    needle = squash(value)
-    if len(needle) >= 4:
-        return needle in squashed
-    # very short values ('M', 'Oak') must match as whole words or they would be found almost anywhere
-    return re.search(rf"(?<!\w){re.escape(value.casefold())}(?!\w)", text.casefold()) is not None
+_SYMBOLS = "|".join(re.escape(sym) for sym in ("€", "£", "$", "¥", "₹", "₩", "₽", "₺", "₦", "₪", "₫", "₴", "zł", "Kč"))
+_ISO = "|".join(sorted(ISO_CODES))
+_MARK = rf"(?:{_SYMBOLS}|(?<![A-Za-z])(?:{_ISO})(?![A-Za-z]))"
+_NUM = r"\d[\d.,\u00a0\u202f' ]*\d|\d"
+_PRICED = re.compile(rf"(?:{_MARK}\s?(?P<a>{_NUM}))|(?:(?P<b>{_NUM})\s?{_MARK})", re.I)
 
 
-def verify(field: str, value: object, text: str, squashed: str) -> tuple[object | None, str | None]:
+def _in_text(value: str, ntext: str, strict: bool = False) -> bool:
+    """The value occurs as a whole token run: not glued to letters or digits on either side. `strict` also
+    refuses a match that is only part of a hyphenated or slashed code ('2290' inside 'BH-2290-OAK')."""
+    needle = norm(value)
+    edge = r"[\w\-/]" if strict else r"\w"
+    return bool(needle) and re.search(rf"(?<!{edge}){re.escape(needle)}(?!{edge})", ntext) is not None
+
+
+def verify(field: str, value: object, text: str, ntext: str | None = None) -> tuple[object | None, str | None]:
     """(clean value, None) if the value occurs in the page text, else (None, reason)."""
+    ntext = norm(text) if ntext is None else ntext
     if field == "price":
         price = parse_price(value)
         if price is None:
             return None, "not a number"
-        found = {parse_price(tok) for tok in re.findall(r"\d[\d.,  ' ]*\d|\d", text)}
-        return (price, None) if price in found else (None, "that number does not appear in the page text")
+        # a bare number is everywhere on a page ('3-5 working days'); a price must sit next to a currency marker
+        found = {parse_price(m.group("a") or m.group("b")) for m in _PRICED.finditer(text)}
+        return (price, None) if price in found else (None, "that number does not appear next to a currency symbol or code in the page text")
     if field == "currency":
         code = str(value).strip().upper()
         if code not in ISO_CODES:
@@ -98,7 +107,9 @@ def verify(field: str, value: object, text: str, squashed: str) -> tuple[object 
     clean = clean_text(value, 2000)
     if not clean:
         return None, "empty"
-    if not _in_text(clean, text, squashed):
+    if field == "sku" and len(clean) < 3:
+        return None, "too short to be a SKU"
+    if not _in_text(clean, ntext, strict=field == "sku"):
         return None, "that text does not appear in the page text"
     return (normalize_availability(clean) if field == "availability" else clean), None
 
@@ -139,12 +150,12 @@ class LLMExtractor:
         except (KeyError, IndexError, TypeError, ValueError, ValidationError):
             result.warnings.append("The LLM reply was not valid JSON in the expected shape; it was ignored.")
             return result
-        squashed = squash(text)
+        ntext = norm(text)
         for field in wanted:
             raw = getattr(answer, field)
             if raw is None or (isinstance(raw, str) and not raw.strip()):
                 continue
-            value, why = verify(field, raw, text, squashed)
+            value, why = verify(field, raw, text, ntext)
             if value is None:
                 result.warnings.append(f"LLM value for {field} was rejected: {why}.")
             else:
