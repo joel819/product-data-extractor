@@ -23,4 +23,7 @@ dev = ["pytest>=8", "pytest-asyncio>=0.23"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-q"
-filterwarnings = ["ignore::DeprecationWarning"]
+filterwarnings = [
+  "ignore::DeprecationWarning",
+  "ignore:Using .httpx. with .starlette.testclient.*",  # Starlette nudging towards a new test client; harmless
+]

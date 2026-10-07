@@ -44,3 +44,8 @@ class PageTooLarge(ExtractError):
 class NotHtml(ExtractError):
     code = "not_html"
     http_status = 422
+
+
+class Unauthorized(ExtractError):
+    code = "unauthorized"
+    http_status = 401
